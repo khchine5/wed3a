@@ -4,3 +4,4 @@ https://control.divio.com/api/v1/apps/serve/aldryn-django/2.2.19.0/cb13b1a7-e1a1
 https://control.divio.com/api/v1/apps/serve/aldryn-sso/2.0.0/e6eccefa-e8f5-492d-8e71-79fc99f30201/aldryn-sso-2.0.0.tar.gz#egg=aldryn-sso==2.0.0
 # </INSTALLED_ADDONS>
 mysqlclient
+shuup==2.4.0
