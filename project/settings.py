@@ -1,19 +1,46 @@
+import environ
 import os
 
-from shuup.addons import add_enabled_addons
+env = environ.Env(DEBUG=(bool, False))
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-SECRET_KEY = "Shhhhh"
-DEBUG = True
-ALLOWED_HOSTS = []
 
-MEDIA_ROOT = os.path.join(BASE_DIR, "var", "media")
-STATIC_ROOT = os.path.join(BASE_DIR, "var", "static")
-MEDIA_URL = "/media/"
+def optenv(var):
+    return env(var, default=None)
 
-SHUUP_ENABLED_ADDONS_FILE = os.path.join(BASE_DIR, "var", "enabled_addons")
 
-INSTALLED_APPS = add_enabled_addons(SHUUP_ENABLED_ADDONS_FILE, [
+root = environ.Path(__file__) - 3
+
+BASE_DIR = root()
+
+DEBUG = env('DEBUG')
+
+env.read_env(os.path.join(BASE_DIR, 'wed3a_project', '.env'))
+
+SECRET_KEY = env('SECRET_KEY', default='xxx')
+
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': 'wed3a.sqlite3',
+    }
+}
+
+MEDIA_URL = env('MEDIA_URL', default='/media/')
+STATIC_URL = env('STATIC_URL', default='/static/')
+
+MEDIA_ROOT = root(env('MEDIA_LOCATION', default=os.path.join(BASE_DIR, 'var', 'media')))
+STATIC_ROOT = root(env('STATIC_LOCATION', default=os.path.join(BASE_DIR, 'var', 'static')))
+
+SHUUP_HOME_CURRENCY = env('SHOP_CURRENCY', default='USD')
+
+ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='*').split(',')
+
+EMAIL_CONFIG = env.email_url('EMAIL_URL', default='smtp://localhost:25')
+vars().update(EMAIL_CONFIG)
+
+
+INSTALLED_APPS = [
     # django
     'django.contrib.admin',
     'django.contrib.auth',
@@ -25,9 +52,12 @@ INSTALLED_APPS = add_enabled_addons(SHUUP_ENABLED_ADDONS_FILE, [
     'easy_thumbnails',
     # shuup themes
     'shuup.themes.classic_gray',
+    'business_logic',
+
     # shuup
     'shuup.core',
     'shuup.admin',
+    # 'shuup.api',
     'shuup.addons',
     'shuup.default_tax',
     'shuup.front',
@@ -46,6 +76,7 @@ INSTALLED_APPS = add_enabled_addons(SHUUP_ENABLED_ADDONS_FILE, [
     'shuup.campaigns',
     'shuup.simple_supplier',
     'shuup.order_printouts',
+    'shuup.testing',
     'shuup.utils',
     'shuup.xtheme',
     'shuup.reports',
@@ -56,6 +87,7 @@ INSTALLED_APPS = add_enabled_addons(SHUUP_ENABLED_ADDONS_FILE, [
     'shuup.gdpr',
     'shuup.tasks',
     'shuup.discounts',
+    # 'shuup_stripe',
 
     # external apps
     'bootstrap3',
@@ -65,9 +97,11 @@ INSTALLED_APPS = add_enabled_addons(SHUUP_ENABLED_ADDONS_FILE, [
     'filer',
     'reversion',
     'registration',
-])
+    'rest_framework',
+]
 
-MIDDLEWARE_CLASSES = [
+
+MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -83,49 +117,23 @@ MIDDLEWARE_CLASSES = [
     'shuup.admin.middleware.ShuupAdminMiddleware'
 ]
 
-ROOT_URLCONF = 'shuup_workbench.urls'
-WSGI_APPLICATION = 'shuup_workbench.wsgi.application'
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
-}
-
-LANGUAGE_CODE = 'en'
+ROOT_URLCONF = 'project.urls'
+WSGI_APPLICATION = 'project.wsgi.application'
+LANGUAGE_CODE = env('LANGUAGE_CODE', default='en')
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
-STATIC_URL = '/static/'
 LOGIN_REDIRECT_URL = '/'
-DEFAULT_FROM_EMAIL = 'no-reply@example.com'
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+LOGIN_URL = '/login/'
+SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
+RAVEN_CONFIG = {'dsn': optenv('SENTRY_DSN')}
 
-LOGGING = {
-    'version': 1,
-    'formatters': {
-        'verbose': {'format': '[%(asctime)s] (%(name)s:%(levelname)s): %(message)s'},
-    },
-    'handlers': {
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose'
-        },
-    },
-    'loggers': {
-        'shuup': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': True},
-    }
-}
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='no-reply@myshuup.com')
 
-LANGUAGES = [
-    # List all supported languages here.
-    #
-    # Should be a subset of django.conf.global_settings.LANGUAGES.  Use
-    # same spelling for the language names for utilizing the language
-    # name translations from Django.
+SITE_ID = env('SITE_ID', default=1)
+
+LANGUAGE_CHOICES = [
     ('en', 'English'),
     ('fi', 'Finnish'),
     ('it', 'Italian'),
@@ -136,13 +144,14 @@ LANGUAGES = [
     ('zh-hans', 'Simplified Chinese'),
 ]
 
-PARLER_DEFAULT_LANGUAGE_CODE = "en"
+selected_languages = env('LANGUAGES', default='en,fi,ja,zh-hans,pt-br,it').split(',')
+LANGUAGES = [(code, name) for code, name in LANGUAGE_CHOICES if code in selected_languages]
+
+PARLER_DEFAULT_LANGUAGE_CODE = env('PARLER_DEFAULT_LANGUAGE_CODE', default='en')
 
 PARLER_LANGUAGES = {
-    None: [{"code": c, "name": n} for (c, n) in LANGUAGES],
-    'default': {
-        'hide_untranslated': False,
-    }
+    None: [{'code': c, 'name': n} for (c, n) in LANGUAGES],
+    'default': {'hide_untranslated': False}
 }
 
 _TEMPLATE_CONTEXT_PROCESSORS = [
@@ -179,19 +188,45 @@ TEMPLATES = [
     },
 ]
 
-# set login url here because of `login_required` decorators
 LOGIN_URL = "/login/"
 
 SESSION_SERIALIZER = "django.contrib.sessions.serializers.PickleSerializer"
 
 SHUUP_PRICING_MODULE = "customer_group_pricing"
 
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        # 'shuup.api.permissions.ShuupAPIPermission',
+    )
+}
+
+JWT_AUTH = {
+    'JWT_ALLOW_REFRESH': True
+}
+
+SWAGGER_SETTINGS = {
+    "SUPPORTED_SUBMIT_METHODS": [
+        "get"
+    ]
+}
+
+# extend the submit methods only if DEBUG is True
+if DEBUG:
+    SWAGGER_SETTINGS["SUPPORTED_SUBMIT_METHODS"].extend(["post", "patch", "delete", "put"])
+
 SHUUP_SETUP_WIZARD_PANE_SPEC = [
     "shuup.admin.modules.shops.views:ShopWizardPane",
     "shuup.admin.modules.service_providers.views.PaymentWizardPane",
     "shuup.admin.modules.service_providers.views.CarrierWizardPane",
     "shuup.xtheme.admin_module.views.ThemeWizardPane",
-    "shuup.testing.modules.sample_data.views.SampleObjectsWizardPane" if DEBUG else "",
+    "shuup.admin.modules.content.views.ContentWizardPane",
+    "shuup.admin.modules.sample_data.views.SampleObjectsWizardPane",
     "shuup.admin.modules.system.views.TelemetryWizardPane"
 ]
 
@@ -202,7 +237,3 @@ SHUUP_ERROR_PAGE_HANDLERS_SPEC = [
 ]
 
 SHUUP_SIMPLE_SEARCH_LIMIT = 150
-
-
-def configure(setup):
-    setup.commit(globals())

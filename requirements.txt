@@ -1,0 +1,2 @@
+shuup==2.4.0
+django-environ==0.4.5
